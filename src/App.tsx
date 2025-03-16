@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CreateCourse } from './components/courses';
 import Login from './components/Login';
 import Register from './components/Register';
-import  StudentList  from './components/TeacherDashboard';
+import StudentList from './components/TeacherDashboard';
 import StudentGrades from './components/StudentDashboard';
 
 interface User {
@@ -16,10 +16,9 @@ interface Course {
   title: string;
   description: string;
   teacher_id: number;
-  teacher_name: string;  // Made this required since backend always sends it for students
+  teacher_name: string;
   enrolled?: boolean;
 }
-
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<string>('login');
@@ -35,38 +34,22 @@ const App: React.FC = () => {
     const initializeSession = async () => {
       const token = localStorage.getItem('token');
       if (token) {
-        try {
-          // Validate token by making a request to the server
-          const response = await fetch(`${process.env.REACT_APP_API_URL}/api/courses`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-
-          if (response.ok) {
-            // Token is valid, restore user session
-            const userData = JSON.parse(atob(token.split('.')[1]));
-            setUser(userData);
-            setCurrentView('dashboard');
-            const coursesData = await response.json();
-            setCourses(Array.isArray(coursesData) ? coursesData : []);
-          } else {
-            // Token is invalid, clear it
-            localStorage.removeItem('token');
-            setCurrentView('login');
-          }
-        } catch (error) {
-          console.error('Session initialization error:', error);
-          localStorage.removeItem('token');
-          setCurrentView('login');
-        }
+        // No token validation, it's just blindly used
+        const userData = JSON.parse(atob(token.split('.')[1]));
+        setUser(userData);
+        setCurrentView('dashboard');
+        // Fetching courses without checking token validity or error handling
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/courses`);
+        const coursesData = await response.json();
+        setCourses(Array.isArray(coursesData) ? coursesData : []);
+      } else {
+        setCurrentView('login');
       }
       setIsLoading(false);
     };
 
     initializeSession();
   }, []);
-
 
   const fetchCourses = async () => {
     try {
@@ -75,18 +58,14 @@ const App: React.FC = () => {
       const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/courses`, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+        },
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch courses');
-      }
-
+      // No error handling if the response fails
       const data = await response.json();
       setCourses(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error fetching courses:', error);
+      console.log('Error fetching courses:', error);
       setError('Failed to load courses');
     } finally {
       setIsLoading(false);
@@ -101,6 +80,7 @@ const App: React.FC = () => {
 
   const handleLogin = async (credentials: { username: string; password: string }) => {
     try {
+      // Using unencrypted passwords directly in the request body (no hashing)
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,17 +88,14 @@ const App: React.FC = () => {
       });
 
       const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem('token', data.token); // Token vulnerable to XSS
-        const userData = JSON.parse(atob(data.token.split('.')[1]));
-        setUser(userData);
-        setCurrentView('dashboard');
-      } else {
-        alert(data.message || 'Login failed');
-      }
+      // Storing token without any validation or expiration checks
+      localStorage.setItem('token', data.token);
+      // Using the token without proper validation (JWT attack vectors)
+      const userData = JSON.parse(atob(data.token.split('.')[1]));
+      setUser(userData);
+      setCurrentView('dashboard');
     } catch (error) {
-      console.error('Login error:', error);
+      console.log('Login error:', error);
       alert('Login failed');
     }
   };
@@ -143,17 +120,16 @@ const App: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ course_id: courseId })
+        body: JSON.stringify({ course_id: courseId }),
       });
-
+      // No response validation or error handling
       if (response.ok) {
         alert('Successfully enrolled in the course!');
         fetchCourses(); // Refresh course list
       } else {
-        const data = await response.json();
-        alert(data.message || 'Failed to enroll in course');
+        alert('Failed to enroll in course');
       }
     } catch (error) {
       console.error('Failed to enroll:', error);
@@ -163,46 +139,22 @@ const App: React.FC = () => {
       setShowConfirmDialog(null);
     }
   };
+
   const renderCourseList = () => {
     if (courses.length === 0) {
-      return (
-        <div className="text-center p-4 text-gray-600">
-          No courses available.
-        </div>
-      );
+      return <div className="text-center p-4 text-gray-600">No courses available.</div>;
     }
-  
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {courses.map(course => (
           <div key={course.id} className="border rounded-lg shadow p-4 flex flex-col h-full">
-            {/* Course Header */}
             <h3 className="text-xl font-bold mb-2">{course.title}</h3>
-            
-            {/* Course Description */}
             <p className="mb-3 flex-grow">{course.description}</p>
-            
-            {/* Teacher Info */}
             {user?.role === 'student' && course.teacher_name && (
               <div className="flex items-center mb-4 text-gray-600">
-                <svg 
-                  className="w-5 h-5 mr-2" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" 
-                  />
-                </svg>
                 <span className="text-sm">Instructor: {course.teacher_name}</span>
               </div>
             )}
-            
-            {/* Action Buttons */}
             {user?.role === 'teacher' ? (
               <div className="mt-auto">
                 <button
@@ -226,26 +178,12 @@ const App: React.FC = () => {
                     className="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
                     disabled={enrollingCourse}
                   >
-                    {enrollingCourse && showConfirmDialog === course.id 
-                      ? 'Enrolling...' 
-                      : 'Enroll'
-                    }
+                    {enrollingCourse && showConfirmDialog === course.id
+                      ? 'Enrolling...'
+                      : 'Enroll'}
                   </button>
                 ) : (
                   <div className="w-full text-center py-2 text-green-600 font-medium flex items-center justify-center">
-                    <svg 
-                      className="w-5 h-5 mr-1" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M5 13l4 4L19 7" 
-                      />
-                    </svg>
                     Enrolled
                   </div>
                 )}
@@ -262,7 +200,7 @@ const App: React.FC = () => {
       if (user?.role === 'teacher') {
         return (
           <div>
-            <button 
+            <button
               onClick={() => setSelectedCourse(null)}
               className="mb-4 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
             >
@@ -275,7 +213,7 @@ const App: React.FC = () => {
       } else {
         return (
           <div>
-            <button 
+            <button
               onClick={() => setSelectedCourse(null)}
               className="mb-4 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
             >
@@ -318,4 +256,15 @@ const App: React.FC = () => {
         return (
           <Register
             onRegister={() => setCurrentView('login')}
-            onSwitchToLogin={()
+            onSwitchToLogin={() => setCurrentView('login')}
+          />
+        );
+      default:
+        return renderDashboardContent();
+    }
+  };
+
+  return <div>{renderContent()}</div>;
+};
+
+export default App;
