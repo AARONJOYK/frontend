@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CreateCourse } from './components/courses';
 import Login from './components/Login';
@@ -111,7 +110,7 @@ const App: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('token', data.token);
+        localStorage.setItem('token', data.token); // Token vulnerable to XSS
         const userData = JSON.parse(atob(data.token.split('.')[1]));
         setUser(userData);
         setCurrentView('dashboard');
@@ -319,73 +318,4 @@ const App: React.FC = () => {
         return (
           <Register
             onRegister={() => setCurrentView('login')}
-            onSwitchToLogin={() => setCurrentView('login')}
-          />
-        );
-      case 'dashboard':
-      case 'teacherCourse':
-      case 'studentCourse':
-        return renderDashboardContent();
-      default:
-        return <div>Page not found</div>;
-    }
-  };
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {user && (
-        <nav className="bg-white shadow-md p-4 mb-4">
-          <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-xl font-bold">Learning Platform</h1>
-            <div className="flex items-center space-x-4">
-              <span>{user.username} ({user.role})</span>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </nav>
-      )}
-      {renderContent()}
-
-      {/* Confirmation Dialog */}
-      {showConfirmDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h3 className="text-xl font-bold mb-4">Confirm Enrollment</h3>
-            <p className="mb-4">Are you sure you want to enroll in this course?</p>
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setShowConfirmDialog(null)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleEnrollConfirm(showConfirmDialog)}
-                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                disabled={enrollingCourse}
-              >
-                {enrollingCourse ? 'Enrolling...' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default App;
+            onSwitchToLogin={()
